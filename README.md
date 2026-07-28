@@ -6,15 +6,7 @@
 
 ## A Note on Development
 
-This project was built using **vibe coding** — an iterative, AI-assisted development approach where functionality is shaped through conversation and rapid prototyping rather than upfront architectural planning. 
-
-What that means practically:
-- The codebase is **vanilla HTML, CSS, and JavaScript** — no build step, no framework, no dependencies.
-- Features emerged organically: "What if it tracked streaks?" → added. "Can it remember my folders?" → IndexedDB integration. "I want notes per lesson" → textarea + localStorage.
-- Some parts are pragmatic rather than perfect. Error handling is minimal. The UI is hand-rolled. State management is flat objects in `localStorage`.
-- It works. It solves a real problem (tracking offline video courses). And it was genuinely fun to build.
-
-If you're reading this as a developer: yes, you could refactor this into React/Vue with a proper state layer, tests, and a build pipeline. The current version prioritizes **working software that runs in any modern browser** over engineering ceremony.
+This project was built using **vibe coding** with Codex.
 
 ---
 
