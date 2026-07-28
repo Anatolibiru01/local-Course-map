@@ -65,7 +65,7 @@ Click any lesson to open the **Player**:
 - The **"Mark complete"** button enables once you've watched at least 50%.
 - Write notes in the side panel — they save automatically to `localStorage`.
 
-### 5. Disconnect or Add More
+### 4. Disconnect or Add More
 
 - **"Add course folder"** — attach additional directories.
 - **"Disconnect library"** — clears all data, revokes video URLs, and resets the app to its initial state.
