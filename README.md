@@ -89,15 +89,3 @@ Everything stays on your machine:
 
 **Important:** Clearing browser data for this site will erase your progress and notes. There is no cloud backup.
 
----
-
-## Known Limitations
-
-- **Browser support:** Requires a browser with File System Access API (Chromium-based). Firefox and Safari are not supported.
-- **Folder permissions:** If you move or rename a connected folder, the stored handle becomes invalid. You'll need to disconnect and reconnect.
-- **No export:** Notes and progress are trapped in this browser. There is no JSON export or sync.
-- **Single-device:** Data does not sync between computers.
-- **File types:** Only scans for video extensions. Subtitles, PDFs, or other materials are ignored.
-- **State management:** Flat object mutations in `localStorage`. Large libraries may hit storage limits.
-
----
