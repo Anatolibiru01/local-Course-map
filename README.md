@@ -9,7 +9,7 @@
 This project was built using **vibe coding** with Codex.
 
 ---
-## How setup
+## How to setup
 - Download the Zip and extract the it.
 - open index.html
 
