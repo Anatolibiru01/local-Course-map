@@ -36,6 +36,45 @@
               <strong id="progressStat">0%</strong>
             </div>
           </div>
+          
+          <div class="section-title">
+            <h3>Activity History</h3>
+            <span id="graphSub">Click a day to view watched lessons</span>
+          </div>
+          <div class="activity-container">
+            <div class="graph-scroll-container">
+              <div class="graph-months" id="graphMonths"></div>
+              <div class="graph-body">
+                <div class="graph-labels">
+                  <span>Mon</span>
+                  <span>Wed</span>
+                  <span>Fri</span>
+                </div>
+                <div class="graph-grid" id="activityGraph"></div>
+              </div>
+            </div>
+            <div class="graph-footer">
+              <div class="graph-legend">
+                <span>Less</span>
+                <span class="legend-box" data-level="0"></span>
+                <span class="legend-box" data-level="1"></span>
+                <span class="legend-box" data-level="2"></span>
+                <span class="legend-box" data-level="3"></span>
+                <span class="legend-box" data-level="4"></span>
+                <span>More</span>
+              </div>
+            </div>
+            <div class="history-detail hidden" id="historyDetail">
+              <div class="detail-header">
+                <h4 id="detailDate">July 30, 2026</h4>
+                <span class="detail-duration" id="detailDuration">0m watched</span>
+              </div>
+              <ul class="detail-list" id="detailList">
+                <!-- Dynamic list of lessons watched -->
+              </ul>
+            </div>
+          </div>
+
           <div class="section-title">
               <h3>Your courses</h3>
               <span id="courseSummary">Connect your folder to begin</span>

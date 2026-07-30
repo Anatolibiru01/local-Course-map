@@ -132,6 +132,7 @@ function renderDash() {
     ? `<button class="lesson-card" id="continueBtn"><div><h4>${esc(last.title)}</h4><p>${esc(last.course)} · ${pct(last)}% watched</p></div><span class="primary">Resume</span></button>`
     : '<div class="empty"><h3>Choose your next lesson</h3><p>Connect one or more course folders to build your library.</p></div>';
   if (last) $("#continueBtn").onclick = () => openLesson(last);
+  renderActivityGraph();
 }
 function renderLibrary() {
   if (!catalog.length) {
@@ -389,11 +390,162 @@ $("#video").ontimeupdate = (e) => {
   let s = state();
   s.watchSeconds = s.watchSeconds || {};
   s.activity = s.activity || {};
+  s.history = s.history || {};
+  
   s.watchSeconds[current.id] = (s.watchSeconds[current.id] || 0) + d;
   s.activity[day(0)] = (s.activity[day(0)] || 0) + d;
+  
+  // Track detailed history per lesson per day
+  s.history[day(0)] = s.history[day(0)] || {};
+  let record = s.history[day(0)][current.id] || { duration: 0, title: current.title, course: current.course };
+  if (typeof record === 'number') {
+    record = { duration: record, title: current.title, course: current.course };
+  }
+  record.duration = (record.duration || 0) + d;
+  s.history[day(0)][current.id] = record;
+  
   save(s);
   $("#watchProgress").style.width = pct(current) + "%";
   doneButton();
 };
+
+function renderActivityGraph() {
+  let s = state(),
+    activity = s.activity || {};
+
+  let todayObj = new Date();
+  let dayOfWeek = todayObj.getDay();
+  let startOffset = 364 + dayOfWeek;
+  let endOffset = -(6 - dayOfWeek);
+
+  let cells = [];
+  let months = [];
+  let lastMonthName = "";
+  let lastMonthCol = -100;
+
+  for (let i = startOffset; i >= endOffset; i--) {
+    let dateStr = day(i);
+    let isFuture = i < 0;
+    let sec = isFuture ? 0 : (activity[dateStr] || 0);
+    
+    // Level calculation: 0 = 0m, 1 = 0-10m, 2 = 10-30m, 3 = 30-60m, 4 = >60m
+    let lvl = 0;
+    if (sec > 0 && !isFuture) {
+      let m = sec / 60;
+      if (m <= 10) lvl = 1;
+      else if (m <= 30) lvl = 2;
+      else if (m <= 60) lvl = 3;
+      else lvl = 4;
+    }
+
+    let localDate = new Date(dateStr + "T00:00:00");
+    let formattedDate = localDate.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+    cells.push({
+      dateStr,
+      formattedDate,
+      level: lvl,
+      seconds: sec,
+      isFuture
+    });
+
+    if (localDate.getDay() === 0) {
+      let monthName = localDate.toLocaleString('default', { month: 'short' });
+      if (monthName !== lastMonthName) {
+        let colIdx = Math.floor((startOffset - i) / 7);
+        if (colIdx - lastMonthCol >= 4) {
+          months.push({ name: monthName, index: colIdx });
+          lastMonthCol = colIdx;
+        }
+        lastMonthName = monthName;
+      }
+    }
+  }
+
+  // Render months aligned to week columns
+  $("#graphMonths").innerHTML = months
+    .map(m => `<span class="graph-month-label" style="grid-column: ${m.index + 1} / span 3;">${m.name}</span>`)
+    .join('');
+
+  // Render cells
+  $("#activityGraph").innerHTML = cells
+    .map(c => {
+      let titleAttr = `${c.formattedDate}: ${mins(c.seconds)} watched`;
+      return `<div class="graph-day" data-date="${c.dateStr}" data-level="${c.level}" title="${esc(titleAttr)}" ${c.isFuture ? 'style="opacity:0.25;pointer-events:none;"' : ''}></div>`;
+    })
+    .join('');
+
+  // Click handler for days
+  $$(".graph-day").forEach(dayEl => {
+    dayEl.onclick = () => {
+      $$(".graph-day").forEach(el => el.classList.remove("selected"));
+      dayEl.classList.add("selected");
+      showDayDetail(dayEl.dataset.date);
+    };
+  });
+
+  // Default to showing today's detail
+  let todayStr = day(0);
+  showDayDetail(todayStr);
+  let todayEl = $(`.graph-day[data-date="${todayStr}"]`);
+  if (todayEl) {
+    todayEl.classList.add("selected");
+  }
+}
+
+function showDayDetail(dateStr) {
+  let s = state(),
+    history = s.history || {},
+    activity = s.activity || {};
+
+  let localDate = new Date(dateStr + "T00:00:00");
+  let formattedDate = localDate.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  let totalSec = activity[dateStr] || 0;
+  let dayHistory = history[dateStr] || {};
+
+  $("#detailDate").textContent = formattedDate;
+  $("#detailDuration").textContent = mins(totalSec) + " watched";
+
+  let listHtml = "";
+  let items = Object.entries(dayHistory);
+
+  if (items.length > 0) {
+    listHtml = items
+      .map(([id, info]) => {
+        let title = info.title || "Unknown Lesson";
+        let course = info.course || "";
+        let duration = mins(info.duration || 0);
+        return `<li class="detail-item">
+          <span class="detail-title">${esc(title)}</span>
+          ${course ? `<span class="detail-course">${esc(course)}</span>` : ''}
+          <span class="detail-time">${duration}</span>
+        </li>`;
+      })
+      .join('');
+  } else if (totalSec > 0) {
+    listHtml = `<li class="detail-item" style="color: var(--muted); font-style: italic;">
+      <span class="detail-title">Detailed breakdown not available for legacy data.</span>
+      <span class="detail-time">${mins(totalSec)}</span>
+    </li>`;
+  } else {
+    listHtml = `<li class="detail-item" style="color: var(--muted); font-style: italic;">
+      <span class="detail-title">No lessons watched on this day.</span>
+    </li>`;
+  }
+
+  $("#detailList").innerHTML = listHtml;
+  $("#historyDetail").classList.remove("hidden");
+}
+
 renderDash();
 restore();
