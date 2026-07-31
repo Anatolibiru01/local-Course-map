@@ -219,6 +219,7 @@ function show(v) {
     $("#" + x + "View").classList.toggle("hidden", x !== v),
   );
   $$(".nav").forEach((x) => x.classList.toggle("active", x.dataset.view === v));
+  $("#backToLibraryHeader").classList.toggle("hidden", v !== "player");
   if (v === "dashboard") renderDash();
   if (v === "notes") notes();
 }
@@ -247,7 +248,11 @@ function openLesson(l) {
   $("#video").src = l.url;
   $("#lessonTitle").textContent = l.title;
   $("#lessonMeta").textContent = l.course + " · " + l.section;
-  $("#breadcrumb").textContent = l.course + " / " + l.section;
+  
+  let idx = catalog.findIndex(x => x.id === l.id);
+  let hasNext = idx !== -1 && idx < catalog.length - 1;
+  $("#nextBtn").classList.toggle("hidden", !hasNext);
+  
   $("#noteText").value = s.notes?.[l.id] || "";
   $("#watchProgress").style.width = pct(l) + "%";
   doneButton();
@@ -363,7 +368,14 @@ $$(".chip[data-filter]").forEach(
       renderLibrary();
     }),
 );
-$("#backToLibrary").onclick = () => openLibrary(current?.course);
+$("#backToLibraryHeader").onclick = () => openLibrary(current?.course);
+$("#nextBtn").onclick = () => {
+  if (!current || !catalog.length) return;
+  let idx = catalog.findIndex(x => x.id === current.id);
+  if (idx !== -1 && idx < catalog.length - 1) {
+    openLesson(catalog[idx + 1]);
+  }
+};
 $("#doneBtn").onclick = toggleDone;
 $("#noteText").oninput = (e) => {
   if (!current) return;

@@ -9,7 +9,7 @@
 </head>
 <body>
   <div class="app">
-    <header class="top"><div class="brand"><div class="mark">C</div><div><h1>Course Compass</h1><p>Your offline learning library</p></div></div><div class="header-actions"><button class="connect" id="connectBtn">Add course folder</button><button class="chip hidden" id="disconnectBtn">Disconnect library</button></div></header>
+    <header class="top"><div class="brand"><div class="mark">C</div><div><h1>Course Compass</h1><p>Your offline learning library</p></div><button class="chip hidden" id="backToLibraryHeader">← Library</button></div><div class="header-actions"><button class="connect" id="connectBtn">Add course folder</button><button class="chip hidden" id="disconnectBtn">Disconnect library</button></div></header>
     <div class="layout">
       <aside class="sidebar"><button class="nav active" data-view="dashboard">Dashboard</button><button class="nav" data-view="library">Course library <span class="count" id="lessonCount">0</span></button><button class="nav" data-view="notes">My notes</button></aside>
       <main class="main">
@@ -90,7 +90,7 @@
             </div></section>
         <section id="libraryView" class="hidden"><div class="section-title"><h3>Course library</h3><span>Search every connected lesson</span></div><div class="toolbar"><input id="search" class="search" placeholder="Search lessons or sections…"><button class="chip active" data-filter="all">All</button><button class="chip" data-filter="todo">To do</button><button class="chip" data-filter="watched">Watched</button><button class="chip" data-filter="done">Completed</button></div><div class="library"><aside class="outline" id="outline"></aside><div class="lesson-list" id="lessonList"></div></div></section>
         <section id="notesView" class="hidden"><div class="section-title"><h3>My notes</h3><span>Notes are saved in this browser</span></div><div id="notesList"></div></section>
-        <section id="playerView" class="hidden"><div class="section-title"><button class="chip" id="backToLibrary">← Library</button><span id="breadcrumb"></span></div><div class="player-grid"><article class="player"><video id="video" class="video" controls preload="metadata"></video><div class="player-info"><h3 id="lessonTitle">Choose a lesson</h3><p id="lessonMeta"></p><div class="progress"><i id="watchProgress"></i></div></div></article><aside class="notes"><h3>Lesson notes</h3><textarea id="noteText" placeholder="Capture ideas, examples, or questions…"></textarea><div class="note-actions"><span id="saveState">Saved automatically</span><button class="primary" id="doneBtn">Mark complete</button></div></aside></div></section>
+        <section id="playerView" class="hidden"><div class="player-grid"><article class="player"><video id="video" class="video" controls preload="metadata"></video><div class="player-info"><div class="player-title-row"><h3 id="lessonTitle">Choose a lesson</h3><button class="chip" id="nextBtn">Next →</button></div><p id="lessonMeta"></p><div class="progress"><i id="watchProgress"></i></div></div></article><aside class="notes"><h3>Lesson notes</h3><textarea id="noteText" placeholder="Capture ideas, examples, or questions…"></textarea><div class="note-actions"><span id="saveState">Saved automatically</span><button class="primary" id="doneBtn">Mark complete</button></div></aside></div></section>
       </main>
     </div>
   </div><div class="toast" id="toast"></div>
