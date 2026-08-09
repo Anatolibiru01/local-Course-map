@@ -240,7 +240,33 @@ function doneButton() {
       ? "Mark complete"
       : "Watch " + (50 - p) + "% more";
 }
-function openLesson(l) {
+async function openLesson(l) {
+  if (!l.url) {
+    let sourceId = l.id.split("::")[0];
+    let folder = folders.find(f => f.id === sourceId);
+    if (folder) {
+      try {
+        let perm = await folder.handle.requestPermission({ mode: "read" });
+        if (perm === "granted") {
+          await load();
+          let updatedLesson = catalog.find(x => x.id === l.id);
+          if (updatedLesson && updatedLesson.url) {
+            openLesson(updatedLesson);
+            return;
+          }
+        } else {
+          flash("Read permission denied for this folder.");
+          return;
+        }
+      } catch (e) {
+        flash("Could not access folder: " + e.message);
+        return;
+      }
+    }
+    flash("This course folder is not connected.");
+    return;
+  }
+
   current = l;
   let s = state();
   s.last = l.id;
@@ -269,16 +295,28 @@ function toggleDone() {
   renderDash();
   renderLibrary();
 }
-async function scan(h, path = "", source = "", fixed = "") {
+function saveCatalogCache() {
+  let cache = catalog.map(({ id, course, section, title }) => ({ id, course, section, title }));
+  localStorage.setItem("courseCompassCatalog", JSON.stringify(cache));
+}
+
+function loadCatalogCache() {
+  let cached = localStorage.getItem("courseCompassCatalog");
+  if (cached) {
+    catalog = JSON.parse(cached);
+  }
+}
+
+async function scan(h, path = "", source = "", fixed = "", dest = catalog) {
   for await (let e of h.values()) {
     if (e.kind === "directory")
-      await scan(e, path ? path + "/" + e.name : e.name, source, fixed);
+      await scan(e, path ? path + "/" + e.name : e.name, source, fixed, dest);
     else if (/\.(mp4|mkv|webm|mov|m4v)$/i.test(e.name)) {
       let parts = (path + "/" + e.name).split("/"),
         course = fixed || parts[0],
         rest = fixed ? parts : parts.slice(1),
         file = await e.getFile();
-      catalog.push({
+      dest.push({
         id: source + "::" + path + "/" + e.name,
         course,
         section: rest.slice(0, -1).join(" / ") || "Lessons",
@@ -292,32 +330,69 @@ async function scan(h, path = "", source = "", fixed = "") {
   }
 }
 async function load() {
-  catalog.forEach((x) => URL.revokeObjectURL(x.url));
-  catalog = [];
-  for (let f of folders)
-    if ((await f.handle.queryPermission({ mode: "read" })) === "granted")
+  catalog.forEach((x) => x.url && URL.revokeObjectURL(x.url));
+  
+  loadCatalogCache();
+  
+  let newCatalog = [];
+  let scannedSources = new Set();
+  
+  for (let f of folders) {
+    if ((await f.handle.queryPermission({ mode: "read" })) === "granted") {
+      let folderCatalog = [];
       await scan(
         f.handle,
         "",
         f.id,
         /^(video|videos|library|courses)$/i.test(f.name) ? "" : f.name,
+        folderCatalog
       );
+      newCatalog.push(...folderCatalog);
+      scannedSources.add(f.id);
+    }
+  }
+  
+  if (scannedSources.size > 0) {
+    let unscannedItems = catalog.filter(x => {
+      let sourceId = x.id.split("::")[0];
+      return !scannedSources.has(sourceId);
+    });
+    catalog = [...unscannedItems, ...newCatalog];
+    saveCatalogCache();
+  }
+  
   catalog.sort(
     (a, b) =>
       a.course.localeCompare(b.course) ||
       a.section.localeCompare(b.section) ||
       a.title.localeCompare(b.title, undefined, { numeric: true }),
   );
-  $("#connectBtn").textContent = catalog.length
+  
+  let allPermission = true;
+  for (let f of folders) {
+    if ((await f.handle.queryPermission({ mode: "read" })) !== "granted") {
+      allPermission = false;
+      break;
+    }
+  }
+  
+  $("#connectBtn").textContent = (folders.length === 0 || allPermission)
     ? "Add course folder"
     : "Reconnect folders";
-  $("#disconnectBtn").classList.toggle("hidden", !folders.length);
+    
   renderDash();
   renderLibrary();
 }
 async function connect() {
   try {
-    if (folders.length && !catalog.length) {
+    let allPermission = true;
+    for (let f of folders) {
+      if ((await f.handle.queryPermission({ mode: "read" })) !== "granted") {
+        allPermission = false;
+        break;
+      }
+    }
+    if (folders.length && !allPermission) {
       for (let f of folders) await f.handle.requestPermission({ mode: "read" });
       await load();
       return;
@@ -332,22 +407,6 @@ async function connect() {
     if (e.name !== "AbortError") flash("Could not read that folder.");
   }
 }
-async function disconnect() {
-  let v = $("#video");
-  v.pause();
-  v.removeAttribute("src");
-  v.load();
-  catalog.forEach((x) => URL.revokeObjectURL(x.url));
-  catalog = [];
-  folders = [];
-  current = null;
-  await clearFolders();
-  $("#disconnectBtn").classList.add("hidden");
-  show("dashboard");
-  renderDash();
-  renderLibrary();
-  flash("Course library disconnected");
-}
 async function restore() {
   let r = await readFolders();
   folders = r.map((x, i) =>
@@ -356,7 +415,6 @@ async function restore() {
   await load();
 }
 $("#connectBtn").onclick = connect;
-$("#disconnectBtn").onclick = disconnect;
 $$(".nav").forEach((b) => (b.onclick = () => show(b.dataset.view)));
 $("#search").oninput = renderLibrary;
 $$(".chip[data-filter]").forEach(
