@@ -1,9 +1,9 @@
 const $ = (s) => document.querySelector(s),
   $$ = (s) => [...document.querySelectorAll(s)],
   initial = [
-    ["JavaScript", "⚡", 159],
-    ["Node.js", "⬢", 210],
-    ["Design_Patterns", "◇", 95],
+    ["JavaScript", "J", 159],
+    ["Node.js", "N", 210],
+    ["Design_Patterns", "D", 95],
   ];
 let catalog = [],
   selected = "",
@@ -12,8 +12,22 @@ let catalog = [],
   filter = "all",
   folders = [],
   lastTime = 0;
-const state = () => JSON.parse(localStorage.getItem("courseCompass") || "{}"),
-  save = (x) => localStorage.setItem("courseCompass", JSON.stringify(x)),
+const state = () => {
+    try {
+      return JSON.parse(localStorage.getItem("courseCompass") || "{}");
+    } catch (e) {
+      return {};
+    }
+  },
+  save = (x) => {
+    localStorage.setItem("courseCompass", JSON.stringify(x));
+    try {
+      backup.then((d) => {
+        let t = d.transaction("state", "readwrite");
+        t.objectStore("state").put(x, "main");
+      });
+    } catch (e) {}
+  },
   esc = (s) =>
     String(s).replace(
       /[&<>'"]/g,
@@ -27,6 +41,7 @@ const state = () => JSON.parse(localStorage.getItem("courseCompass") || "{}"),
         })[c],
     ),
   status = (l) => !!state().completed?.[l.id],
+  flagged = (l) => !!state().flags?.[l.id],
   day = (o) => {
     let d = new Date();
     d.setDate(d.getDate() - o);
@@ -70,16 +85,27 @@ const db = new Promise((ok, bad) => {
         t.oncomplete = ok;
         t.onerror = () => bad(t.error);
       }),
-    ),
-  clearFolders = async () =>
-    new Promise((ok, bad) =>
-      db.then((d) => {
-        let t = d.transaction("folders", "readwrite");
-        t.objectStore("folders").clear();
-        t.oncomplete = ok;
-        t.onerror = () => bad(t.error);
-      }),
     );
+
+const backup = new Promise((ok, bad) => {
+    let r = indexedDB.open("courseCompassBackup", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("state");
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => bad(r.error);
+  }),
+  readBackup = async () =>
+    new Promise((ok) => {
+      backup.then(
+        (d) => {
+          let r = d.transaction("state").objectStore("state").get("main");
+          r.onsuccess = () => ok(r.result || null);
+          r.onerror = () => ok(null);
+        },
+        () => ok(null),
+      );
+    });
+
+/* ---------- Dashboard ---------- */
 function renderDash() {
   let all = catalog.length
       ? catalog
@@ -98,6 +124,7 @@ function renderDash() {
     ? Math.round((done / all.length) * 100) + "%"
     : "0%";
   $("#lessonCount").textContent = all.length;
+  $("#flagCount").textContent = all.filter(flagged).length;
   $("#courseSummary").textContent = catalog.length
     ? [...new Set(catalog.map((x) => x.course))].length +
       " connected courses · " +
@@ -111,7 +138,7 @@ function renderDash() {
   let courses = catalog.length
     ? [...new Set(catalog.map((x) => x.course))].map((n) => [
         n,
-        n === "JavaScript" ? "⚡" : n === "Node.js" ? "⬢" : "◇",
+        n.charAt(0).toUpperCase(),
         catalog.filter((x) => x.course === n).length,
       ])
     : initial;
@@ -134,6 +161,8 @@ function renderDash() {
   if (last) $("#continueBtn").onclick = () => openLesson(last);
   renderActivityGraph();
 }
+
+/* ---------- Library ---------- */
 function renderLibrary() {
   if (!catalog.length) {
     $("#outline").innerHTML = "";
@@ -189,7 +218,7 @@ function renderLibrary() {
     ls
       .map(
         (l) =>
-          `<article class="lesson-card"><button class="lesson-open" data-id="${esc(l.id)}" style="border:0;background:transparent;color:inherit;text-align:left;padding:0;flex:1"><h4>${esc(l.title)}</h4><p>${esc(l.section)} · ${pct(l)}% watched</p></button><span class="check ${status(l) ? "done" : ""}">${status(l) ? "✓ Done" : pct(l) ? pct(l) + "% watched" : "Not started"}</span></article>`,
+          `<article class="lesson-card ${flagged(l) ? "flagged" : ""}"><button class="lesson-open" data-id="${esc(l.id)}"><h4>${esc(l.title)}</h4><p>${esc(l.section)} · ${pct(l)}% watched</p></button><span class="check ${status(l) ? "done" : ""}">${status(l) ? "Done" : flagged(l) ? "Watch later" : pct(l) ? pct(l) + "% watched" : "Not started"}</span></article>`,
       )
       .join("") || '<div class="empty"><h3>No lessons match</h3></div>';
   $$(".lesson-open").forEach(
@@ -198,6 +227,8 @@ function renderLibrary() {
         openLesson(catalog.find((x) => x.id === b.dataset.id))),
   );
 }
+
+/* ---------- Notes & Flagged views ---------- */
 function notes() {
   let n = state().notes || {},
     ls = catalog.filter((x) => n[x.id]);
@@ -205,7 +236,7 @@ function notes() {
     ls
       .map(
         (l) =>
-          `<article class="lesson-card"><button class="lesson-open" data-id="${esc(l.id)}" style="border:0;background:transparent;color:inherit;text-align:left;padding:0;flex:1"><h4>${esc(l.title)}</h4><p>${esc(n[l.id].slice(0, 110))}</p></button></article>`,
+          `<article class="lesson-card"><button class="lesson-open" data-id="${esc(l.id)}"><h4>${esc(l.title)}</h4><p>${esc(n[l.id].slice(0, 110))}</p></button></article>`,
       )
       .join("") || '<div class="empty"><h3>No notes yet</h3></div>';
   $$(".lesson-open").forEach(
@@ -214,14 +245,46 @@ function notes() {
         openLesson(catalog.find((x) => x.id === b.dataset.id))),
   );
 }
+function renderFlagged() {
+  let ls = catalog.filter(flagged);
+  $("#flaggedList").innerHTML =
+    ls
+      .map(
+        (l) =>
+          `<article class="lesson-card flagged"><button class="lesson-open" data-id="${esc(l.id)}"><h4>${esc(l.title)}</h4><p>${esc(l.course)} · ${esc(l.section)} · ${pct(l)}% watched</p></button><button class="check" data-unflag="${esc(l.id)}">Clear flag</button></article>`,
+      )
+      .join("") ||
+      '<div class="empty"><h3>Nothing flagged</h3><p>Flag a lesson from the player when the topic isn\'t clear yet — it will appear here to revisit.</p></div>';
+  $$("#flaggedList .lesson-open").forEach(
+    (b) =>
+      (b.onclick = () =>
+        openLesson(catalog.find((x) => x.id === b.dataset.id))),
+  );
+  $$("#flaggedList .check").forEach((b) => {
+    b.onclick = () => {
+      let s = state();
+      s.flags = s.flags || {};
+      delete s.flags[b.dataset.unflag];
+      save(s);
+      renderFlagged();
+      renderDash();
+      if (current) updateFlagUI();
+    };
+  });
+}
+
+/* ---------- Navigation ---------- */
 function show(v) {
-  ["dashboard", "library", "notes", "player"].forEach((x) =>
+  ["dashboard", "library", "notes", "flagged", "player"].forEach((x) =>
     $("#" + x + "View").classList.toggle("hidden", x !== v),
   );
   $$(".nav").forEach((x) => x.classList.toggle("active", x.dataset.view === v));
+  document.body.classList.toggle("player-mode", v === "player");
   $("#backToLibraryHeader").classList.toggle("hidden", v !== "player");
+  window.scrollTo({ top: 0, behavior: "smooth" });
   if (v === "dashboard") renderDash();
   if (v === "notes") notes();
+  if (v === "flagged") renderFlagged();
 }
 function openLibrary(c) {
   if (c && c !== selected) selectedSection = "";
@@ -229,27 +292,49 @@ function openLibrary(c) {
   show("library");
   renderLibrary();
 }
+function goToLesson(offset) {
+  if (!current || !catalog.length) return;
+  let idx = catalog.findIndex((x) => x.id === current.id);
+  let ni = idx + offset;
+  if (ni >= 0 && ni < catalog.length) openLesson(catalog[ni]);
+}
+
+/* ---------- Player ---------- */
 function doneButton() {
   if (!current) return;
   let p = pct(current),
     ready = p >= 50;
   $("#doneBtn").disabled = !status(current) && !ready;
   $("#doneBtn").textContent = status(current)
-    ? "Completed ✓"
+    ? "Completed"
     : ready
       ? "Mark complete"
       : "Watch " + (50 - p) + "% more";
 }
+function updateFlagUI() {
+  let f = current && flagged(current);
+  $("#flagBtn").classList.toggle("flagged", !!f);
+  $("#flagBtn").textContent = f ? "Flagged · watch later" : "Flag for later";
+  $("#flagBadge").classList.toggle("show", !!f);
+}
+function setPlayerNav() {
+  if (!current || !catalog.length) return;
+  let idx = catalog.findIndex((x) => x.id === current.id);
+  let hasPrev = idx > 0;
+  let hasNext = idx !== -1 && idx < catalog.length - 1;
+  $("#prevBtn").classList.toggle("hidden", !hasPrev);
+  $("#nextBtn").classList.toggle("hidden", !hasNext);
+}
 async function openLesson(l) {
   if (!l.url) {
     let sourceId = l.id.split("::")[0];
-    let folder = folders.find(f => f.id === sourceId);
+    let folder = folders.find((f) => f.id === sourceId);
     if (folder) {
       try {
         let perm = await folder.handle.requestPermission({ mode: "read" });
         if (perm === "granted") {
           await load();
-          let updatedLesson = catalog.find(x => x.id === l.id);
+          let updatedLesson = catalog.find((x) => x.id === l.id);
           if (updatedLesson && updatedLesson.url) {
             openLesson(updatedLesson);
             return;
@@ -274,13 +359,11 @@ async function openLesson(l) {
   $("#video").src = l.url;
   $("#lessonTitle").textContent = l.title;
   $("#lessonMeta").textContent = l.course + " · " + l.section;
-  
-  let idx = catalog.findIndex(x => x.id === l.id);
-  let hasNext = idx !== -1 && idx < catalog.length - 1;
-  $("#nextBtn").classList.toggle("hidden", !hasNext);
-  
+
   $("#noteText").value = s.notes?.[l.id] || "";
   $("#watchProgress").style.width = pct(l) + "%";
+  setPlayerNav();
+  updateFlagUI();
   doneButton();
   show("player");
 }
@@ -295,18 +378,36 @@ function toggleDone() {
   renderDash();
   renderLibrary();
 }
+function toggleFlag() {
+  if (!current) return;
+  let s = state();
+  s.flags = s.flags || {};
+  s.flags[current.id] = !s.flags[current.id];
+  save(s);
+  updateFlagUI();
+  renderDash();
+  renderLibrary();
+  flash(
+    s.flags[current.id]
+      ? "Flagged — come back to this one later."
+      : "Flag removed.",
+  );
+}
+
+/* ---------- Scan / load ---------- */
 function saveCatalogCache() {
-  let cache = catalog.map(({ id, course, section, title }) => ({ id, course, section, title }));
+  let cache = catalog.map(({ id, course, section, title }) => ({
+    id,
+    course,
+    section,
+    title,
+  }));
   localStorage.setItem("courseCompassCatalog", JSON.stringify(cache));
 }
-
 function loadCatalogCache() {
   let cached = localStorage.getItem("courseCompassCatalog");
-  if (cached) {
-    catalog = JSON.parse(cached);
-  }
+  if (cached) catalog = JSON.parse(cached);
 }
-
 async function scan(h, path = "", source = "", fixed = "", dest = catalog) {
   for await (let e of h.values()) {
     if (e.kind === "directory")
@@ -331,12 +432,9 @@ async function scan(h, path = "", source = "", fixed = "", dest = catalog) {
 }
 async function load() {
   catalog.forEach((x) => x.url && URL.revokeObjectURL(x.url));
-  
   loadCatalogCache();
-  
   let newCatalog = [];
   let scannedSources = new Set();
-  
   for (let f of folders) {
     if ((await f.handle.queryPermission({ mode: "read" })) === "granted") {
       let folderCatalog = [];
@@ -345,29 +443,26 @@ async function load() {
         "",
         f.id,
         /^(video|videos|library|courses)$/i.test(f.name) ? "" : f.name,
-        folderCatalog
+        folderCatalog,
       );
       newCatalog.push(...folderCatalog);
       scannedSources.add(f.id);
     }
   }
-  
   if (scannedSources.size > 0) {
-    let unscannedItems = catalog.filter(x => {
+    let unscannedItems = catalog.filter((x) => {
       let sourceId = x.id.split("::")[0];
       return !scannedSources.has(sourceId);
     });
     catalog = [...unscannedItems, ...newCatalog];
     saveCatalogCache();
   }
-  
   catalog.sort(
     (a, b) =>
       a.course.localeCompare(b.course) ||
       a.section.localeCompare(b.section) ||
       a.title.localeCompare(b.title, undefined, { numeric: true }),
   );
-  
   let allPermission = true;
   for (let f of folders) {
     if ((await f.handle.queryPermission({ mode: "read" })) !== "granted") {
@@ -375,11 +470,10 @@ async function load() {
       break;
     }
   }
-  
-  $("#connectBtn").textContent = (folders.length === 0 || allPermission)
-    ? "Add course folder"
-    : "Reconnect folders";
-    
+  $("#connectBtn").textContent =
+    folders.length === 0 || allPermission
+      ? "Add course folder"
+      : "Reconnect folders";
   renderDash();
   renderLibrary();
 }
@@ -414,6 +508,119 @@ async function restore() {
   );
   await load();
 }
+
+/* ---------- Activity Graph ---------- */
+function renderActivityGraph() {
+  let s = state(),
+    activity = s.activity || {};
+  let todayObj = new Date();
+  let dayOfWeek = todayObj.getDay();
+  let startOffset = 364 + dayOfWeek;
+  let endOffset = -(6 - dayOfWeek);
+  let cells = [];
+  let months = [];
+  let lastMonthName = "";
+  let lastMonthCol = -100;
+  for (let i = startOffset; i >= endOffset; i--) {
+    let dateStr = day(i);
+    let isFuture = i < 0;
+    let sec = isFuture ? 0 : activity[dateStr] || 0;
+    let lvl = 0;
+    if (sec > 0 && !isFuture) {
+      let m = sec / 60;
+      if (m <= 10) lvl = 1;
+      else if (m <= 30) lvl = 2;
+      else if (m <= 60) lvl = 3;
+      else lvl = 4;
+    }
+    let localDate = new Date(dateStr + "T00:00:00");
+    let formattedDate = localDate.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    cells.push({ dateStr, formattedDate, level: lvl, seconds: sec, isFuture });
+    if (localDate.getDay() === 0) {
+      let monthName = localDate.toLocaleString("default", { month: "short" });
+      if (monthName !== lastMonthName) {
+        let colIdx = Math.floor((startOffset - i) / 7);
+        if (colIdx - lastMonthCol >= 4) {
+          months.push({ name: monthName, index: colIdx });
+          lastMonthCol = colIdx;
+        }
+        lastMonthName = monthName;
+      }
+    }
+  }
+  $("#graphMonths").innerHTML = months
+    .map(
+      (m) =>
+        `<span class="graph-month-label" style="grid-column: ${m.index + 1} / span 3;">${m.name}</span>`,
+    )
+    .join("");
+  $("#activityGraph").innerHTML = cells
+    .map((c) => {
+      let titleAttr = `${c.formattedDate}: ${mins(c.seconds)} watched`;
+      return `<div class="graph-day" data-date="${c.dateStr}" data-level="${c.level}" title="${esc(titleAttr)}" ${c.isFuture ? 'style="opacity:0.25;pointer-events:none;"' : ""}></div>`;
+    })
+    .join("");
+  $$(".graph-day").forEach((dayEl) => {
+    dayEl.onclick = () => {
+      $$(".graph-day").forEach((el) => el.classList.remove("selected"));
+      dayEl.classList.add("selected");
+      showDayDetail(dayEl.dataset.date);
+    };
+  });
+  let todayStr = day(0);
+  showDayDetail(todayStr);
+  let todayEl = $(`.graph-day[data-date="${todayStr}"]`);
+  if (todayEl) todayEl.classList.add("selected");
+}
+function showDayDetail(dateStr) {
+  let s = state(),
+    history = s.history || {},
+    activity = s.activity || {};
+  let localDate = new Date(dateStr + "T00:00:00");
+  let formattedDate = localDate.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  let totalSec = activity[dateStr] || 0;
+  let dayHistory = history[dateStr] || {};
+  $("#detailDate").textContent = formattedDate;
+  $("#detailDuration").textContent = mins(totalSec) + " watched";
+  let listHtml = "";
+  let items = Object.entries(dayHistory);
+  if (items.length > 0) {
+    listHtml = items
+      .map(([id, info]) => {
+        let title = info.title || "Unknown Lesson";
+        let course = info.course || "";
+        let duration = mins(info.duration || 0);
+        return `<li class="detail-item">
+          <span class="detail-title">${esc(title)}</span>
+          ${course ? `<span class="detail-course">${esc(course)}</span>` : ""}
+          <span class="detail-time">${duration}</span>
+        </li>`;
+      })
+      .join("");
+  } else if (totalSec > 0) {
+    listHtml = `<li class="detail-item" style="color: var(--muted); font-style: italic;">
+      <span class="detail-title">Detailed breakdown not available for legacy data.</span>
+      <span class="detail-time">${mins(totalSec)}</span>
+    </li>`;
+  } else {
+    listHtml = `<li class="detail-item" style="color: var(--muted); font-style: italic;">
+      <span class="detail-title">No lessons watched on this day.</span>
+    </li>`;
+  }
+  $("#detailList").innerHTML = listHtml;
+  $("#historyDetail").classList.remove("hidden");
+}
+
+/* ---------- Wiring ---------- */
 $("#connectBtn").onclick = connect;
 $$(".nav").forEach((b) => (b.onclick = () => show(b.dataset.view)));
 $("#search").oninput = renderLibrary;
@@ -427,13 +634,9 @@ $$(".chip[data-filter]").forEach(
     }),
 );
 $("#backToLibraryHeader").onclick = () => openLibrary(current?.course);
-$("#nextBtn").onclick = () => {
-  if (!current || !catalog.length) return;
-  let idx = catalog.findIndex(x => x.id === current.id);
-  if (idx !== -1 && idx < catalog.length - 1) {
-    openLesson(catalog[idx + 1]);
-  }
-};
+$("#prevBtn").onclick = () => goToLesson(-1);
+$("#nextBtn").onclick = () => goToLesson(1);
+$("#flagBtn").onclick = toggleFlag;
 $("#doneBtn").onclick = toggleDone;
 $("#noteText").oninput = (e) => {
   if (!current) return;
@@ -461,161 +664,94 @@ $("#video").ontimeupdate = (e) => {
   s.watchSeconds = s.watchSeconds || {};
   s.activity = s.activity || {};
   s.history = s.history || {};
-  
   s.watchSeconds[current.id] = (s.watchSeconds[current.id] || 0) + d;
   s.activity[day(0)] = (s.activity[day(0)] || 0) + d;
-  
-  // Track detailed history per lesson per day
   s.history[day(0)] = s.history[day(0)] || {};
-  let record = s.history[day(0)][current.id] || { duration: 0, title: current.title, course: current.course };
-  if (typeof record === 'number') {
+  let record =
+    s.history[day(0)][current.id] || {
+      duration: 0,
+      title: current.title,
+      course: current.course,
+    };
+  if (typeof record === "number") {
     record = { duration: record, title: current.title, course: current.course };
   }
   record.duration = (record.duration || 0) + d;
   s.history[day(0)][current.id] = record;
-  
   save(s);
   $("#watchProgress").style.width = pct(current) + "%";
   doneButton();
 };
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("textarea, input")) return;
+  if ($("#playerView").classList.contains("hidden")) return;
+  if (e.key.toLowerCase() === "f") toggleFlag();
+});
 
-function renderActivityGraph() {
-  let s = state(),
-    activity = s.activity || {};
-
-  let todayObj = new Date();
-  let dayOfWeek = todayObj.getDay();
-  let startOffset = 364 + dayOfWeek;
-  let endOffset = -(6 - dayOfWeek);
-
-  let cells = [];
-  let months = [];
-  let lastMonthName = "";
-  let lastMonthCol = -100;
-
-  for (let i = startOffset; i >= endOffset; i--) {
-    let dateStr = day(i);
-    let isFuture = i < 0;
-    let sec = isFuture ? 0 : (activity[dateStr] || 0);
-    
-    // Level calculation: 0 = 0m, 1 = 0-10m, 2 = 10-30m, 3 = 30-60m, 4 = >60m
-    let lvl = 0;
-    if (sec > 0 && !isFuture) {
-      let m = sec / 60;
-      if (m <= 10) lvl = 1;
-      else if (m <= 30) lvl = 2;
-      else if (m <= 60) lvl = 3;
-      else lvl = 4;
-    }
-
-    let localDate = new Date(dateStr + "T00:00:00");
-    let formattedDate = localDate.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-
-    cells.push({
-      dateStr,
-      formattedDate,
-      level: lvl,
-      seconds: sec,
-      isFuture
-    });
-
-    if (localDate.getDay() === 0) {
-      let monthName = localDate.toLocaleString('default', { month: 'short' });
-      if (monthName !== lastMonthName) {
-        let colIdx = Math.floor((startOffset - i) / 7);
-        if (colIdx - lastMonthCol >= 4) {
-          months.push({ name: monthName, index: colIdx });
-          lastMonthCol = colIdx;
+/* ---------- Backup & Restore ---------- */
+function exportData() {
+  let data = state();
+  let blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "course-compass-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  flash("Progress backup downloaded.");
+}
+function importData(file) {
+  let reader = new FileReader();
+  reader.onload = () => {
+    try {
+      let data = JSON.parse(reader.result);
+      if (typeof data !== "object" || data === null || Array.isArray(data))
+        throw new Error("bad");
+      let cur = state();
+      let merged = { ...cur, ...data };
+      for (const k of Object.keys(data)) {
+        if (
+          data[k] &&
+          typeof data[k] === "object" &&
+          !Array.isArray(data[k]) &&
+          cur[k] &&
+          typeof cur[k] === "object" &&
+          !Array.isArray(cur[k])
+        ) {
+          merged[k] = { ...cur[k], ...data[k] };
         }
-        lastMonthName = monthName;
       }
+      save(merged);
+      flash("Backup restored and merged with current progress.");
+      renderDash();
+      renderLibrary();
+    } catch (e) {
+      flash("That file is not a valid backup.");
+    }
+  };
+  reader.readAsText(file);
+}
+(async function tryAutoRestore() {
+  let raw = localStorage.getItem("courseCompass");
+  let empty = !raw || raw === "{}" || raw === "undefined";
+  if (empty) {
+    let saved = await readBackup();
+    if (saved && Object.keys(saved).length) {
+      localStorage.setItem("courseCompass", JSON.stringify(saved));
+      flash("Recovered your progress from the internal backup.");
+      renderDash();
+      renderLibrary();
     }
   }
-
-  // Render months aligned to week columns
-  $("#graphMonths").innerHTML = months
-    .map(m => `<span class="graph-month-label" style="grid-column: ${m.index + 1} / span 3;">${m.name}</span>`)
-    .join('');
-
-  // Render cells
-  $("#activityGraph").innerHTML = cells
-    .map(c => {
-      let titleAttr = `${c.formattedDate}: ${mins(c.seconds)} watched`;
-      return `<div class="graph-day" data-date="${c.dateStr}" data-level="${c.level}" title="${esc(titleAttr)}" ${c.isFuture ? 'style="opacity:0.25;pointer-events:none;"' : ''}></div>`;
-    })
-    .join('');
-
-  // Click handler for days
-  $$(".graph-day").forEach(dayEl => {
-    dayEl.onclick = () => {
-      $$(".graph-day").forEach(el => el.classList.remove("selected"));
-      dayEl.classList.add("selected");
-      showDayDetail(dayEl.dataset.date);
-    };
-  });
-
-  // Default to showing today's detail
-  let todayStr = day(0);
-  showDayDetail(todayStr);
-  let todayEl = $(`.graph-day[data-date="${todayStr}"]`);
-  if (todayEl) {
-    todayEl.classList.add("selected");
-  }
-}
-
-function showDayDetail(dateStr) {
-  let s = state(),
-    history = s.history || {},
-    activity = s.activity || {};
-
-  let localDate = new Date(dateStr + "T00:00:00");
-  let formattedDate = localDate.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  });
-
-  let totalSec = activity[dateStr] || 0;
-  let dayHistory = history[dateStr] || {};
-
-  $("#detailDate").textContent = formattedDate;
-  $("#detailDuration").textContent = mins(totalSec) + " watched";
-
-  let listHtml = "";
-  let items = Object.entries(dayHistory);
-
-  if (items.length > 0) {
-    listHtml = items
-      .map(([id, info]) => {
-        let title = info.title || "Unknown Lesson";
-        let course = info.course || "";
-        let duration = mins(info.duration || 0);
-        return `<li class="detail-item">
-          <span class="detail-title">${esc(title)}</span>
-          ${course ? `<span class="detail-course">${esc(course)}</span>` : ''}
-          <span class="detail-time">${duration}</span>
-        </li>`;
-      })
-      .join('');
-  } else if (totalSec > 0) {
-    listHtml = `<li class="detail-item" style="color: var(--muted); font-style: italic;">
-      <span class="detail-title">Detailed breakdown not available for legacy data.</span>
-      <span class="detail-time">${mins(totalSec)}</span>
-    </li>`;
-  } else {
-    listHtml = `<li class="detail-item" style="color: var(--muted); font-style: italic;">
-      <span class="detail-title">No lessons watched on this day.</span>
-    </li>`;
-  }
-
-  $("#detailList").innerHTML = listHtml;
-  $("#historyDetail").classList.remove("hidden");
-}
+})();
+$("#exportBtn").onclick = exportData;
+$("#importBtn").onclick = () => $("#importFile").click();
+$("#importFile").onchange = (e) => {
+  if (e.target.files && e.target.files[0]) importData(e.target.files[0]);
+  e.target.value = "";
+};
 
 renderDash();
 restore();

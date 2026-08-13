@@ -9,91 +9,160 @@
 </head>
 <body>
   <div class="app">
-    <header class="top"><div class="brand"><div class="mark">C</div><div><h1>Course Compass</h1><p>Your offline learning library</p></div><button class="chip hidden" id="backToLibraryHeader">← Library</button></div><div class="header-actions"><button class="connect" id="connectBtn">Add course folder</button></div></header>
-    <div class="layout">
-      <aside class="sidebar"><button class="nav active" data-view="dashboard">Dashboard</button><button class="nav" data-view="library">Course library <span class="count" id="lessonCount">0</span></button><button class="nav" data-view="notes">My notes</button></aside>
-      <main class="main">
-        <section id="dashboardView"><div class="welcome">
-          <div>
-            <h2>Build momentum, one lesson at a time.</h2><p>Track actual study time, pick up where you left off, and keep a note beside each lesson.</p>
+    <header class="top">
+      <div class="brand">
+        <div class="mark">C</div>
+        <div><h1>Course Compass</h1><p>Your offline learning library</p></div>
+        <button class="chip hidden" id="backToLibraryHeader">← Library</button>
+      </div>
+      <div class="header-actions">
+        <button class="connect" id="connectBtn">Add course folder</button>
+      </div>
+    </header>
+
+    <nav class="navbar" id="navbar">
+      <button class="nav active" data-view="dashboard">Dashboard</button>
+      <button class="nav" data-view="library">Course library<b class="count" id="lessonCount">0</b></button>
+      <button class="nav" data-view="notes">My notes</button>
+      <button class="nav" data-view="flagged">Watch later<b class="count danger" id="flagCount">0</b></button>
+      <div class="nav-tools">
+        <button class="nav-tool" id="exportBtn" title="Download your progress to a file">Export backup</button>
+        <button class="nav-tool" id="importBtn" title="Restore progress from a backup file">Import backup</button>
+        <input type="file" id="importFile" accept=".json,application/json" hidden>
+      </div>
+    </nav>
+
+    <main class="main">
+      <section id="dashboardView">
+        <div class="stats">
+          <div class="stat">
+            <span>Lessons completed</span>
+            <strong id="doneStat">0</strong>
+          </div>
+          <div class="stat">
+            <span>Study time</span>
+            <strong id="timeStat">0m</strong>
+          </div>
+          <div class="stat">
+            <span>Current streak</span>
+            <strong id="streakStat">0 days</strong>
+          </div>
+          <div class="stat">
+            <span>Learning progress</span>
+            <strong id="progressStat">0%</strong>
           </div>
         </div>
-          <div class="stats">
-            <div class="stat">
-              <span>Lessons completed</span>
-              <strong id="doneStat">0</strong>
-            </div>
-            <div class="stat">
-              <span>Study time</span>
-              <strong id="timeStat">0m</strong>
-            </div>
-            <div class="stat">
-              <span>Current streak</span>
-              <strong id="streakStat">0 days</strong>
-            </div>
-            <div class="stat">
-              <span>Learning progress</span>
-              <strong id="progressStat">0%</strong>
-            </div>
-          </div>
-          
-          <div class="section-title">
-            <h3>Activity History</h3>
-            <span id="graphSub">Click a day to view watched lessons</span>
-          </div>
-          <div class="activity-container">
-            <div class="graph-scroll-container">
-              <div class="graph-months" id="graphMonths"></div>
-              <div class="graph-body">
-                <div class="graph-labels">
-                  <span>Mon</span>
-                  <span>Wed</span>
-                  <span>Fri</span>
-                </div>
-                <div class="graph-grid" id="activityGraph"></div>
-              </div>
-            </div>
-            <div class="graph-footer">
-              <div class="graph-legend">
-                <span>Less</span>
-                <span class="legend-box" data-level="0"></span>
-                <span class="legend-box" data-level="1"></span>
-                <span class="legend-box" data-level="2"></span>
-                <span class="legend-box" data-level="3"></span>
-                <span class="legend-box" data-level="4"></span>
-                <span>More</span>
-              </div>
-            </div>
-            <div class="history-detail hidden" id="historyDetail">
-              <div class="detail-header">
-                <h4 id="detailDate">July 30, 2026</h4>
-                <span class="detail-duration" id="detailDuration">0m watched</span>
-              </div>
-              <ul class="detail-list" id="detailList">
-                <!-- Dynamic list of lessons watched -->
-              </ul>
-            </div>
-          </div>
 
-          <div class="section-title">
-              <h3>Your courses</h3>
-              <span id="courseSummary">Connect your folder to begin</span>
-            </div>
-            <div class="courses" id="courses">
-
-            </div>
+        <div class="dash-grid">
+          <div class="dash-col">
             <div class="section-title">
               <h3>Continue learning</h3>
             </div>
-            <div id="continueArea">
-              
-            </div></section>
-        <section id="libraryView" class="hidden"><div class="section-title"><h3>Course library</h3><span>Search every connected lesson</span></div><div class="toolbar"><input id="search" class="search" placeholder="Search lessons or sections…"><button class="chip active" data-filter="all">All</button><button class="chip" data-filter="todo">To do</button><button class="chip" data-filter="watched">Watched</button><button class="chip" data-filter="done">Completed</button></div><div class="library"><aside class="outline" id="outline"></aside><div class="lesson-list" id="lessonList"></div></div></section>
-        <section id="notesView" class="hidden"><div class="section-title"><h3>My notes</h3><span>Notes are saved in this browser</span></div><div id="notesList"></div></section>
-        <section id="playerView" class="hidden"><div class="player-grid"><article class="player"><video id="video" class="video" controls preload="metadata"></video><div class="player-info"><div class="player-title-row"><h3 id="lessonTitle">Choose a lesson</h3><button class="chip" id="nextBtn">Next →</button></div><p id="lessonMeta"></p><div class="progress"><i id="watchProgress"></i></div></div></article><aside class="notes"><h3>Lesson notes</h3><textarea id="noteText" placeholder="Capture ideas, examples, or questions…"></textarea><div class="note-actions"><span id="saveState">Saved automatically</span><button class="primary" id="doneBtn">Mark complete</button></div></aside></div></section>
-      </main>
-    </div>
-  </div><div class="toast" id="toast"></div>
+            <div id="continueArea"></div>
+          </div>
+          <div class="dash-col dash-main">
+            <div class="section-title">
+              <h3>Activity History</h3>
+              <span id="graphSub">Click a day to view watched lessons</span>
+            </div>
+            <div class="activity-container">
+              <div class="graph-scroll-container">
+                <div class="graph-months" id="graphMonths"></div>
+                <div class="graph-body">
+                  <div class="graph-labels">
+                    <span>Mon</span>
+                    <span>Wed</span>
+                    <span>Fri</span>
+                  </div>
+                  <div class="graph-grid" id="activityGraph"></div>
+                </div>
+              </div>
+              <div class="graph-footer">
+                <div class="graph-legend">
+                  <span>Less</span>
+                  <span class="legend-box" data-level="0"></span>
+                  <span class="legend-box" data-level="1"></span>
+                  <span class="legend-box" data-level="2"></span>
+                  <span class="legend-box" data-level="3"></span>
+                  <span class="legend-box" data-level="4"></span>
+                  <span>More</span>
+                </div>
+              </div>
+              <div class="history-detail hidden" id="historyDetail">
+                <div class="detail-header">
+                  <h4 id="detailDate">July 30, 2026</h4>
+                  <span class="detail-duration" id="detailDuration">0m watched</span>
+                </div>
+                <ul class="detail-list" id="detailList"></ul>
+              </div>
+            </div>
+            <div class="section-title">
+              <h3>Your courses</h3>
+              <span id="courseSummary">Connect your folder to begin</span>
+            </div>
+            <div class="courses" id="courses"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="libraryView" class="hidden">
+        <div class="section-title"><h3>Course library</h3><span>Search every connected lesson</span></div>
+        <div class="toolbar">
+          <input id="search" class="search" placeholder="Search lessons or sections…">
+          <button class="chip active" data-filter="all">All</button>
+          <button class="chip" data-filter="todo">To do</button>
+          <button class="chip" data-filter="watched">Watched</button>
+          <button class="chip" data-filter="done">Completed</button>
+        </div>
+        <div class="library">
+          <aside class="outline" id="outline"></aside>
+          <div class="lesson-list" id="lessonList"></div>
+        </div>
+      </section>
+
+      <section id="notesView" class="hidden">
+        <div class="section-title"><h3>My notes</h3><span>Notes are saved in this browser</span></div>
+        <div id="notesList"></div>
+      </section>
+
+      <section id="flaggedView" class="hidden">
+        <div class="section-title"><h3>Watch later</h3><span>Lessons you flagged when the topic wasn't clear yet</span></div>
+        <div id="flaggedList"></div>
+      </section>
+
+      <section id="playerView" class="hidden">
+        <div class="player-layout">
+          <article class="player">
+            <div class="video-wrap" id="videoWrap">
+              <video id="video" class="video" controls preload="metadata"></video>
+              <div class="video-flag-badge" id="flagBadge">Watch later</div>
+            </div>
+            <div class="player-info">
+              <div class="player-title-row">
+                <h3 id="lessonTitle">Choose a lesson</h3>
+                <div class="player-buttons">
+                  <button class="chip" id="prevBtn">← Prev</button>
+                  <button class="chip" id="nextBtn">Next →</button>
+                </div>
+              </div>
+              <p id="lessonMeta"></p>
+              <div class="progress"><i id="watchProgress"></i></div>
+            </div>
+          </article>
+          <aside class="notes">
+            <h3>Lesson notes</h3>
+            <textarea id="noteText" placeholder="Capture ideas, examples, or questions…"></textarea>
+            <div class="note-actions"><span id="saveState">Saved automatically</span></div>
+            <div class="player-toolbar">
+              <button class="flag-btn" id="flagBtn">Flag for later</button>
+              <button class="primary" id="doneBtn">Mark complete</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
   <script src="app.js"></script>
 </body>
 </html>
