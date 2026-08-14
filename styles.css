@@ -140,8 +140,8 @@ button {
   transform: translateY(-1px);
 }
 .primary:disabled {
-  background: var(--surface-3);
-  color: var(--muted);
+  background: #ffffff;
+  color: #0e0000;
   box-shadow: none;
   cursor: not-allowed;
   transform: none;
@@ -576,7 +576,7 @@ button {
   display: block;
 }
 .player-info {
-  padding: 16px 18px;
+  padding: 6px 6px;
 }
 .player-info h3,
 .notes h3 {
