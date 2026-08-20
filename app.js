@@ -135,22 +135,65 @@ function renderDash() {
       ) +
       " this week"
     : "464 lessons ready to connect";
+
   let courses = catalog.length
-    ? [...new Set(catalog.map((x) => x.course))].map((n) => [
-        n,
-        n.charAt(0).toUpperCase(),
-        catalog.filter((x) => x.course === n).length,
-      ])
-    : initial;
+    ? [...new Set(catalog.map((x) => x.course))].map((n) => {
+        let ls = catalog.filter((x) => x.course === n);
+        let doneCount = ls.filter(status).length;
+        let p = ls.length ? Math.round((doneCount / ls.length) * 100) : 0;
+        return {
+          name: n,
+          icon: n.charAt(0).toUpperCase(),
+          total: ls.length,
+          done: doneCount,
+          progress: p,
+        };
+      })
+    : initial.map((x) => ({
+        name: x[0],
+        icon: x[1],
+        total: x[2],
+        done: 0,
+        progress: 0,
+      }));
+
+  // Sort courses: Active in-progress first, then unstarted, then completed
+  courses.sort((a, b) => {
+    let rankA = a.progress > 0 && a.progress < 100 ? 2 : a.progress === 0 ? 1 : 0;
+    let rankB = b.progress > 0 && b.progress < 100 ? 2 : b.progress === 0 ? 1 : 0;
+    if (rankB !== rankA) return rankB - rankA;
+    if (b.progress !== a.progress) return b.progress - a.progress;
+    return a.name.localeCompare(b.name);
+  });
+
   $("#courses").innerHTML = courses
     .map((c) => {
-      let ls = catalog.filter((x) => x.course === c[0]),
-        p = ls.length
-          ? Math.round((ls.filter(status).length / ls.length) * 100)
-          : 0;
-      return `<button class="course" data-course="${esc(c[0])}"><span class="icon">${c[1]}</span><h3>${esc(c[0])}</h3><p>Explore lessons at your own pace and keep your progress visible.</p><div class="progress"><i style="width:${p}%"></i></div><div class="course-footer"><span>${c[2]} lessons</span><span>${p}% done</span></div></button>`;
+      let badge =
+        c.progress === 100
+          ? '<span class="badge-tag done">Completed</span>'
+          : c.progress > 0
+            ? `<span class="badge-tag active">${c.progress}% done</span>`
+            : '<span class="badge-tag">Not started</span>';
+      return `<button class="course" data-course="${esc(c.name)}">
+        <div class="course-header-row">
+          <span class="icon">${c.icon}</span>
+          ${badge}
+        </div>
+        <div class="course-info">
+          <h3>${esc(c.name)}</h3>
+          <p>Explore lessons and track your study milestones.</p>
+        </div>
+        <div class="course-bottom">
+          <div class="progress"><i style="width:${c.progress}%"></i></div>
+          <div class="course-footer">
+            <span>${c.total} lessons</span>
+            <span>${c.done}/${c.total} done</span>
+          </div>
+        </div>
+      </button>`;
     })
     .join("");
+
   $$(".course").forEach(
     (b) => (b.onclick = () => openLibrary(b.dataset.course)),
   );
@@ -652,6 +695,8 @@ let backLibrary = () => openLibrary(current?.course);
 if ($("#backToLibraryBtn")) $("#backToLibraryBtn").onclick = backLibrary;
 if ($("#backToLibraryHeader")) $("#backToLibraryHeader").onclick = backLibrary;
 if ($("#playerCourseBreadcrumb")) $("#playerCourseBreadcrumb").onclick = backLibrary;
+if ($("#quickNotesBtn")) $("#quickNotesBtn").onclick = () => show("notes");
+if ($("#quickFlaggedBtn")) $("#quickFlaggedBtn").onclick = () => show("flagged");
 $("#prevBtn").onclick = () => goToLesson(-1);
 $("#nextBtn").onclick = () => goToLesson(1);
 $("#flagBtn").onclick = toggleFlag;

@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Course Compass</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="topics.css">
 </head>
@@ -59,6 +62,26 @@
               <h3>Continue learning</h3>
             </div>
             <div id="continueArea"></div>
+
+            <div class="section-title">
+              <h3>Quick access</h3>
+            </div>
+            <div class="quick-access">
+              <button class="quick-card" id="quickNotesBtn">
+                <span class="quick-icon">📝</span>
+                <div class="quick-body">
+                  <strong>My Notes</strong>
+                  <p>Browse saved takeaways</p>
+                </div>
+              </button>
+              <button class="quick-card" id="quickFlaggedBtn">
+                <span class="quick-icon">🔖</span>
+                <div class="quick-body">
+                  <strong>Watch Later</strong>
+                  <p>Review flagged lessons</p>
+                </div>
+              </button>
+            </div>
           </div>
           <div class="dash-col dash-main">
             <div class="section-title">
@@ -96,6 +119,7 @@
                 <ul class="detail-list" id="detailList"></ul>
               </div>
             </div>
+
             <div class="section-title">
               <h3>Your courses</h3>
               <span id="courseSummary">Connect your folder to begin</span>
