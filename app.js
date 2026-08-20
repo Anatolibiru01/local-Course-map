@@ -303,13 +303,23 @@ function goToLesson(offset) {
 function doneButton() {
   if (!current) return;
   let p = pct(current),
-    ready = p >= 50;
-  $("#doneBtn").disabled = !status(current) && !ready;
-  $("#doneBtn").textContent = status(current)
+    ready = p >= 50,
+    isDone = status(current);
+  $("#doneBtn").disabled = !isDone && !ready;
+  $("#doneBtn").textContent = isDone
     ? "Completed"
     : ready
       ? "Mark complete"
       : "Watch " + (50 - p) + "% more";
+  let progressBadge = $("#progressBadge");
+  if (progressBadge) {
+    progressBadge.textContent = isDone
+      ? "Completed"
+      : p > 0
+        ? p + "% watched"
+        : "Not started";
+    progressBadge.classList.toggle("done", isDone);
+  }
 }
 function updateFlagUI() {
   let f = current && flagged(current);
@@ -359,6 +369,11 @@ async function openLesson(l) {
   $("#video").src = l.url;
   $("#lessonTitle").textContent = l.title;
   $("#lessonMeta").textContent = l.course + " · " + l.section;
+
+  let courseBreadcrumb = $("#playerCourseBreadcrumb");
+  if (courseBreadcrumb) courseBreadcrumb.textContent = l.course;
+  let sectionBreadcrumb = $("#playerSectionBreadcrumb");
+  if (sectionBreadcrumb) sectionBreadcrumb.textContent = l.section;
 
   $("#noteText").value = s.notes?.[l.id] || "";
   $("#watchProgress").style.width = pct(l) + "%";
@@ -633,7 +648,10 @@ $$(".chip[data-filter]").forEach(
       renderLibrary();
     }),
 );
-$("#backToLibraryHeader").onclick = () => openLibrary(current?.course);
+let backLibrary = () => openLibrary(current?.course);
+if ($("#backToLibraryBtn")) $("#backToLibraryBtn").onclick = backLibrary;
+if ($("#backToLibraryHeader")) $("#backToLibraryHeader").onclick = backLibrary;
+if ($("#playerCourseBreadcrumb")) $("#playerCourseBreadcrumb").onclick = backLibrary;
 $("#prevBtn").onclick = () => goToLesson(-1);
 $("#nextBtn").onclick = () => goToLesson(1);
 $("#flagBtn").onclick = toggleFlag;
